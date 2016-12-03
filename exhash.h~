@@ -5,13 +5,14 @@ typedef struct Record {
 	char city[25];
 } Record;
 
-typedef struct EHT_first {
+typedef struct EHT {
 	char* fileName;					// name of hashtable
 	char attrType;					// type of key
 	char* attrName;					// name of key
 	int attrLength;					// length of key
 	int depth;					// depth of extendable hash table
-} EHT_first;
+	struct Record **table;				// array of pointers that point to hash entries
+} EHT;
 
 
 

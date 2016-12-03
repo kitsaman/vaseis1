@@ -64,7 +64,24 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
   			BF_CloseFile(blockFile);
   			return -1;
   		}
-	}	
+	}
+	int* block
+	block
+	 = 3;
+		
+	 
+	
+
+	if(BF_ReadBlock(blockFile,0,&block)<0) {
+ 	 	BF_PrintError("Could not read block\n");
+ 	 	BF_CloseFile(blockFile);
+  		return -1;
+  	}
+	else{
+		
+	
+	
+	
 }
 
 HT_info* HT_OpenIndex(char *fileName) {

@@ -12,7 +12,7 @@ typedef struct Record {
 typedef struct HT_first{
 	char* fileName;					// name of hashtable
 	char attrType;					// type of key
-	char* attrName;					// name of key
+	char attrName[500];					// name of key
 	int attrLength;					// length of key
 	int size;					// size of array
 } HT_first;
