@@ -45,25 +45,39 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 
 	//hashTable construction
 
-	if(BF_AllocateBlock(blockFile)<0) {
-  		BF_PrintError("Could not allocate block\n");
-  		BF_CloseFile(blockFile);
-  		return -1;
-  	}
-	int* hashTable;
 	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
-	int blockSum=1 //number of blocks we'll need to allocate
+	int blockSum=1; //number of blocks we'll need to allocate
 	int bucketsLeft = buckets; //buckets that still need to fit in a block
 	while( bucketsLeft > maxBuckets ){
 		blockSum++;
 		bucketsLeft -= maxBuckets;
 	}
 	for(i=0; i<blockSum; i++) { //allocate needed blocks
+		int* hashTable;
+		if(i==blockSum-1)		//size of array
+			hashTable = malloc( sizeof(int) * bucketsLeft);	
+		else
+			hashTable = malloc( sizeof(int) * maxBuckets);
 		if(BF_AllocateBlock(blockFile)<0) {
   			BF_PrintError("Could not allocate block\n");
   			BF_CloseFile(blockFile);
   			return -1;
   		}
+  		if(BF_ReadBlock(blockFile,i+1,&block)<0) {
+ 	 		BF_PrintError("Could not read block\n");
+ 	 		BF_CloseFile(blockFile);
+  			return -1;
+  		}
+  		if(i==blockSum-1)
+			memcpy(block,hashTable,sizeof(int) * bucketsLeft);
+		else
+			memcpy(block,hashTable,sizeof(int) * maxBuckets);
+		if(BF_WriteBlock(blockFile,i+1)) {
+			BF_PrintError("Could not write to block\n");
+ 		 	BF_CloseFile(blockFile);
+  			return -1;
+		}
+  		free(hashTable);
 	}	
 }
 
