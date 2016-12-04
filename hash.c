@@ -38,7 +38,7 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
  	 	BF_CloseFile(blockFile);
   		return -1;
 	}
-	printf("Filename=%s\nName=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->fileName,info->attrName,info->attrType,info->attrLength,info->size);
+	//printf("Filename=%s\nName=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->fileName,info->attrName,info->attrType,info->attrLength,info->size);
 	free(info->fileName);
 	free(info->attrName);
 	free(info);
@@ -82,10 +82,32 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 }
 
 HT_info* HT_OpenIndex(char *fileName) {
-    /* Add your code here */
-
-    return;
-    
+    int blockFile;
+    void* block;
+    HT_info* info;
+    HT_first first_info;
+    if((blockFile=BF_OpenFile(fileName))<0) {		//open the file
+  		 BF_PrintError("Could not open file\n");
+  		 return NULL;
+  	}
+    if(BF_ReadBlock(blockFile,0,&block)<0){			//read from the first block
+  		 BF_PrintError("Could not read block\n");
+  		 BF_CloseFile(blockFile);
+  		 return NULL;
+  	}
+  	memcpy(&first_info,block,sizeof(HT_first));
+  	if(first_info.attrType!='c' && first_info.attrType!='i')					//check that the file is a hash file
+  		return NULL;
+  	info = malloc(sizeof(HT_info));												//allocate memory to save info
+  	info->attrName = malloc( (strlen(first_info.attrName)+1) * sizeof(char) );
+  	info->fileDesc = blockFile; 
+  	printf("Arxika=%s\n",first_info.attrName);
+  	strcpy(info->attrName,first_info.attrName);
+  	info->attrType = first_info.attrType;
+  	info->attrLength = first_info.attrLength;
+  	info->numBuckets = first_info.size;
+  	printf("Name=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->attrName,info->attrType,info->attrLength,info->numBuckets);
+  	return info;
 } 
 
 
@@ -123,4 +145,5 @@ int HashStatistics(char* filename) {
 int main(void){
 	BF_Init();
 	HT_CreateIndex( "peos", 'c', "poutsa", 6, 5);
+	HT_OpenIndex("peos");
 }

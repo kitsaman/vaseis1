@@ -14,7 +14,7 @@ typedef struct HT_first{
 	char attrType;					// type of key
 	char* attrName;					// name of key
 	int attrLength;					// length of key
-	int size;					// size of array
+	int size;				      	// size of array
 } HT_first;
 
 typedef struct HT_info {
