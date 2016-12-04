@@ -38,7 +38,7 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
  	 	BF_CloseFile(blockFile);
   		return -1;
 	}
-	//printf("Filename=%s\nName=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->fileName,info->attrName,info->attrType,info->attrLength,info->size);
+	printf("Filename=%s\nName=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->fileName,info->attrName,info->attrType,info->attrLength,info->size);
 	free(info->fileName);
 	free(info->attrName);
 	free(info);
@@ -78,7 +78,8 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
   			return -1;
 		}
   		free(hashTable);
-	}	
+	}
+	printf("Created file!\n");
 }
 
 HT_info* HT_OpenIndex(char *fileName) {
@@ -112,9 +113,14 @@ HT_info* HT_OpenIndex(char *fileName) {
 
 
 int HT_CloseIndex( HT_info* header_info ) {
-    /* Add your code here */
-    
-    return -1;
+    if(BF_CloseFile(header_info->fileDesc)<0){
+  		BF_PrintError("Could not close file\n");
+  		return -1;
+  	}
+    free(header_info->attrName);
+    free(header_info);
+    printf("Closed file and freed memory\n");
+    return 0;
     
 }
 
