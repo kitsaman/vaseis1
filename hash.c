@@ -148,7 +148,7 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 
     // Check if hash value block has already been created
 	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
-	int hashBlock=1, gotoBlock;
+	int hashBlock=1, gotoBlock, numRecords, nextBlock;
 	while(hash_value>maxBuckets) {
 		hashBlock++;
 		hash_value -= maxBuckets;
@@ -158,8 +158,8 @@ int HT_InsertEntry(HT_info header_info, Record record) {
  	 	BF_CloseFile(header_info.fileDesc);
   		return -1;
   	}
-  	if(block+hash_value*sizeof(int)==NULL) {					//hash value doesnt have a block
-  		if(BF_AllocateBlock(header_info.fileDesc)<0) {			//create new block
+  	if(block+hash_value*sizeof(int)==NULL) {							//hash value doesnt have a block
+  		if(BF_AllocateBlock(header_info.fileDesc)<0) {					//create new block
   			BF_PrintError("Could not allocate block\n");
   			BF_CloseFile(header_info.fileDesc);
   			return -1;
@@ -169,22 +169,42 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
-		memcpy(block+hash_value*sizeof(int),&gotoBlock,sizeof(int));
-  		if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0){
+		memcpy(block+hash_value*sizeof(int),&gotoBlock,sizeof(int));	//write to hashtable block the corresponding block for this hash value
+  		if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0){		//read the block for this hash value
 			BF_PrintError("Could not read block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
-		memcpy(block+2*sizeof(int),&record,sizeof(Record));
+		numRecords=1;
+		memcpy(block+2*sizeof(int),&record,sizeof(Record));				//copy the record after the space for the number of records in block and block number
+		memcpy(block,&numRecords,sizeof(int));
 		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0){
 			BF_PrintError("Could not write to block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
   	}
-  	else {														// open corresponding block to hash value
-  		
-  	
+  	else {																// open corresponding block to hash value
+  		memcpy(&gotoBlock,block+hash_value*sizeof(int),sizeof(int));
+  		if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0){
+			BF_PrintError("Could not read block\n");
+			BF_CloseFile(header_info.fileDesc);
+			return -1;
+		}
+  		memcpy(&numRecords,block,sizeof(int));
+  		if(numRecords==(512-2*sizeof(int)/sizeof(Record))) {				//cant add another record
+
+  		}
+  		else {
+	  		memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
+	  		numRecords++;
+	  		memcpy(block,&numRecords,sizeof(int));										//+1 number of records
+	  		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0){						//write to block
+				BF_PrintError("Could not write to block\n");
+				BF_CloseFile(header_info.fileDesc);
+				return -1;
+			}
+	  	}
   	}
     return 0;
 }
