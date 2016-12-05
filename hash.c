@@ -81,6 +81,7 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
   		free(hashTable);
 	}
 	printf("Created file!\n");
+	return 0;
 }
 
 HT_info* HT_OpenIndex(char *fileName) {
@@ -125,9 +126,24 @@ int HT_CloseIndex( HT_info* header_info ) {
 }
 
 int HT_InsertEntry(HT_info header_info, Record record) {
-    /* Add your code here */
-    
-    return -1;
+	unsigned int hash_value;
+	int blockFile;
+	void* block;
+    if(header_info.attrType=='i' && strcmp(header_info.attrName,"id")==0)			//use hash_function_int
+    	hash_value = hash_function_int(header_info.numBuckets,record.id);
+    else if(header_info.attrType=='c') {
+    	if(strcmp(header_info.attrName,"city")==0)
+    		hash_value = hash_function_char(header_info.numBuckets,record.city);
+    	else if(strcmp(header_info.attrName,"name")==0)
+    		hash_value = hash_function_char(header_info.numBuckets,record.name);
+    	else if(strcmp(header_info.attrName,"surname")==0)
+    		hash_value = hash_function_char(header_info.numBuckets,record.surname);
+    	else
+    		return -1;
+    }
+    else
+    	return -1;
+    return 0;
     
 }
 
@@ -146,6 +162,21 @@ int HashStatistics(char* filename) {
     
     return -1;
     
+}
+
+unsigned int hash_function_int(int hashsize,int num){
+	unsigned int hash_value;
+	hash_value=num%hashsize;
+	return hash_value;
+}
+
+unsigned int hash_function_char(int hashsize,char hash_name[100]){
+	unsigned long hash_value=0;
+	int i;
+	while(i=*hash_name++)
+		hash_value=i+(hash_value<<6)+(hash_value<<16)-hash_value;
+	hash_value=hash_value%hashsize;
+	return (unsigned int)hash_value;
 }
 
 int main(void){

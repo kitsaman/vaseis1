@@ -16,7 +16,7 @@ typedef struct HT_first{
 	int attrLength;					// length of key
 	int size;				      	// size of array
     int initialBlocks;              // first info block+blocks the hashtable needs
-    int isHash;
+    int isHash;                     // variable to know if file is hashtable file
 } HT_first;
 
 typedef struct HT_info {
@@ -25,9 +25,12 @@ typedef struct HT_info {
     char attrName[100];        /* το όνομα του πεδίου που είναι κλειδί για το συγκεκριμένο αρχείο */ 
     int attrLength;      /* το μέγεθος του πεδίου που είναι κλειδί για το συγκεκριμένο αρχείο */ 
     long int numBuckets;                 /* το πλήθος των “κάδων” του αρχείου κατακερματισμού */ 
-    int initialBlocks;
+    int initialBlocks;              // first info block+blocks the hashtable needs
 } HT_info;
 
+
+unsigned int hash_function_int (int num,int hashsize);
+unsigned int hash_function_char( int hashsize,char hash_name[100]) ;
 
 /* Η συνάρτηση HT_CreateIndex χρησιμοποιείται για τη δημιουργία και κατάλληλη αρχικοποίηση ενός 
 άδειου αρχείου κατακερματισμού με όνομα fileName. Σε περίπτωση που εκτελεστεί επιτυχώς, 
