@@ -29,8 +29,9 @@ typedef struct HT_info {
 } HT_info;
 
 
-unsigned int hash_function_int (int num,int hashsize);
-unsigned int hash_function_char( int hashsize,char hash_name[100]) ;
+unsigned int hash_function_int ( int num,int hashsize);
+unsigned int hash_function_char( int hashsize,char hash_name[100]);
+void print_record( Record rec);
 
 /* Η συνάρτηση HT_CreateIndex χρησιμοποιείται για τη δημιουργία και κατάλληλη αρχικοποίηση ενός 
 άδειου αρχείου κατακερματισμού με όνομα fileName. Σε περίπτωση που εκτελεστεί επιτυχώς, 
