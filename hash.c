@@ -2,10 +2,10 @@
 #include "hash.h"
 
 int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLength, int buckets) {
-	int blockFile, bucketsN, i, j;
+	int blockFile, bucketsN, i;
 	HT_first* info = malloc(sizeof(HT_first));
-	info->fileName = malloc( (strlen(fileName)+1) * sizeof(char) );
-	info->attrName = malloc( (strlen(attrName)+1) * sizeof(char) );
+	//info->fileName = malloc( (strlen(fileName)+1) * sizeof(char) );
+	//info->attrName = malloc( (strlen(attrName)+1) * sizeof(char) );
 	void *block;
 	if(BF_CreateFile(fileName)<0) {
   		BF_PrintError("Could not create file\n");
@@ -27,6 +27,14 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 	info->attrType=attrType;
 	info->attrLength=attrLength;
 	info->size=buckets;
+	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
+	int blockSum=1; //number of blocks we'll need to allocate
+	int bucketsLeft = buckets; //buckets that still need to fit in a block
+	while( bucketsLeft > maxBuckets ){
+		blockSum++;
+		bucketsLeft -= maxBuckets;
+	}
+	info->initialBlocks=blockSum+1;
 	if(BF_ReadBlock(blockFile,0,&block)<0) {
  	 	BF_PrintError("Could not read block\n");
  	 	BF_CloseFile(blockFile);
@@ -38,20 +46,12 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
  	 	BF_CloseFile(blockFile);
   		return -1;
 	}
-	printf("Filename=%s\nName=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->fileName,info->attrName,info->attrType,info->attrLength,info->size);
-	free(info->fileName);
-	free(info->attrName);
+	//free(info->fileName);
+	//free(info->attrName);
 	free(info);
 
 	//hashTable construction
 
-	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
-	int blockSum=1; //number of blocks we'll need to allocate
-	int bucketsLeft = buckets; //buckets that still need to fit in a block
-	while( bucketsLeft > maxBuckets ){
-		blockSum++;
-		bucketsLeft -= maxBuckets;
-	}
 	for(i=0; i<blockSum; i++) { //allocate needed blocks
 		int* hashTable;
 		if(i==blockSum-1)		//size of array
@@ -100,14 +100,14 @@ HT_info* HT_OpenIndex(char *fileName) {
   	if(first_info.attrType!='c' && first_info.attrType!='i')					//check that the file is a hash file
   		return NULL;
   	info = malloc(sizeof(HT_info));												//allocate memory to save info
-  	info->attrName = malloc( (strlen(first_info.attrName)+1) * sizeof(char) );
-  	info->fileDesc = blockFile; 
-  	printf("Arxika=%s\n",first_info.attrName);
+  	//info->attrName = malloc( (strlen(first_info.attrName)+1) * sizeof(char) );
+  	info->fileDesc = blockFile;
   	strcpy(info->attrName,first_info.attrName);
   	info->attrType = first_info.attrType;
   	info->attrLength = first_info.attrLength;
   	info->numBuckets = first_info.size;
-  	printf("Name=%s\nType=%c\nLength=%d\nBuckets=%d\n",info->attrName,info->attrType,info->attrLength,info->numBuckets);
+  	info->initialBlocks = first_info.initialBlocks;
+  	printf("Name=%s\nType=%c\nLength=%d\nBuckets=%d\nBlocks=%d\n",info->attrName,info->attrType,info->attrLength,info->numBuckets,info->initialBlocks);
   	return info;
 } 
 
@@ -117,7 +117,7 @@ int HT_CloseIndex( HT_info* header_info ) {
   		BF_PrintError("Could not close file\n");
   		return -1;
   	}
-    free(header_info->attrName);
+    //free(header_info->attrName);
     free(header_info);
     printf("Closed file and freed memory\n");
     return 0;
@@ -149,7 +149,9 @@ int HashStatistics(char* filename) {
 }
 
 int main(void){
+	HT_info* bla;
 	BF_Init();
-	HT_CreateIndex( "peos", 'c', "poutsa", 6, 5);
-	HT_OpenIndex("peos");
+	HT_CreateIndex( "peos", 'c', "poutsa", 6, 500);
+	bla=HT_OpenIndex("peos");
+	HT_CloseIndex(bla);
 }

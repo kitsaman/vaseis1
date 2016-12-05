@@ -10,19 +10,21 @@ typedef struct Record {
 } Record;
 
 typedef struct HT_first{
-	char* fileName;					// name of hashtable
+	char fileName[100];				// name of hashtable
 	char attrType;					// type of key
-	char* attrName;					// name of key
+	char attrName[100];				// name of key
 	int attrLength;					// length of key
 	int size;				      	// size of array
+    int initialBlocks;              // first info block+blocks the hashtable needs
 } HT_first;
 
 typedef struct HT_info {
     int fileDesc;           /* αναγνωριστικός αριθμός ανοίγματος αρχείου από το επίπεδο block */ 
     char attrType;/* ο τύπος του πεδίου που είναι κλειδί για το συγκεκριμένο αρχείο, 'c' ή'i' */ 
-    char* attrName;        /* το όνομα του πεδίου που είναι κλειδί για το συγκεκριμένο αρχείο */ 
+    char attrName[100];        /* το όνομα του πεδίου που είναι κλειδί για το συγκεκριμένο αρχείο */ 
     int attrLength;      /* το μέγεθος του πεδίου που είναι κλειδί για το συγκεκριμένο αρχείο */ 
     long int numBuckets;                 /* το πλήθος των “κάδων” του αρχείου κατακερματισμού */ 
+    int initialBlocks;
 } HT_info;
 
 
