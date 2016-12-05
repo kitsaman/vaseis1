@@ -184,7 +184,7 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 			return -1;
 		}
   	}
-  	else {																// open corresponding block to hash value
+  	else {																		// open corresponding block to hash value
   		memcpy(&gotoBlock,block+hash_value*sizeof(int),sizeof(int));
   		if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0){
 			BF_PrintError("Could not read block\n");
@@ -192,14 +192,38 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 			return -1;
 		}
   		memcpy(&numRecords,block,sizeof(int));
-  		if(numRecords==(512-2*sizeof(int)/sizeof(Record))) {				//cant add another record
+  		if(numRecords==(512-2*sizeof(int)/sizeof(Record))) {					//cant add another record
+  			int inserted=0;
+  			while(inserted==0) {												//need to find block that can fit another record
+  				memcpy(&nextBlock,block+sizeof(int),sizeof(int));
+  				if(BF_ReadBlock(header_info.fileDesc,nextBlock,&block)<0){		//read the next block for this hash value
+					BF_PrintError("Could not read block\n");
+					BF_CloseFile(header_info.fileDesc);
+					return -1;
+				}
+				memcpy(&numRecords,block,sizeof(int));
+				if(numRecords==(512-2*sizeof(int)/sizeof(Record))) {
+					inserted=0;
+				}
+				else {
+					memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
+			  		numRecords++;
+			  		memcpy(block,&numRecords,sizeof(int));												//+1 number of records
+			  		if(BF_WriteBlock(header_info.fileDesc,nextBlock)<0){								//write to block
+						BF_PrintError("Could not write to block\n");
+						BF_CloseFile(header_info.fileDesc);
+						return -1;
+					}
+					inserted=1;
+				}
+  			}
 
   		}
   		else {
 	  		memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
 	  		numRecords++;
-	  		memcpy(block,&numRecords,sizeof(int));										//+1 number of records
-	  		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0){						//write to block
+	  		memcpy(block,&numRecords,sizeof(int));												//+1 number of records
+	  		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0){								//write to block
 				BF_PrintError("Could not write to block\n");
 				BF_CloseFile(header_info.fileDesc);
 				return -1;
