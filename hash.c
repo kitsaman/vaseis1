@@ -109,7 +109,7 @@ HT_info* HT_OpenIndex(char *fileName) {
   	info->attrLength = first_info.attrLength;
   	info->numBuckets = first_info.size;
   	info->initialBlocks = first_info.initialBlocks;
-  	printf("Name=%s\nType=%c\nLength=%d\nBuckets=%d\nBlocks=%d\n",info->attrName,info->attrType,info->attrLength,info->numBuckets,info->initialBlocks);
+  	printf("Name=%s\nType=%c\nLength=%d\nBuckets=%ld\nBlocks=%d\n",info->attrName,info->attrType,info->attrLength,info->numBuckets,info->initialBlocks);
   	return info;
 } 
 
@@ -129,9 +129,11 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 	unsigned int hash_value;
 	int blockFile;
 	void* block;
+
+	// Compute hash value
     if(header_info.attrType=='i' && strcmp(header_info.attrName,"id")==0)			//use hash_function_int
     	hash_value = hash_function_int(header_info.numBuckets,record.id);
-    else if(header_info.attrType=='c') {
+    else if(header_info.attrType=='c') {											//use hash_function_char
     	if(strcmp(header_info.attrName,"city")==0)
     		hash_value = hash_function_char(header_info.numBuckets,record.city);
     	else if(strcmp(header_info.attrName,"name")==0)
@@ -143,8 +145,48 @@ int HT_InsertEntry(HT_info header_info, Record record) {
     }
     else
     	return -1;
+
+    // Check if hash value block has already been created
+	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
+	int hashBlock=1, gotoBlock;
+	while(hash_value>maxBuckets) {
+		hashBlock++;
+		hash_value -= maxBuckets;
+	}
+	if(BF_ReadBlock(header_info.fileDesc,hashBlock,&block)<0) {
+ 	 	BF_PrintError("Could not read block\n");
+ 	 	BF_CloseFile(header_info.fileDesc);
+  		return -1;
+  	}
+  	if(block+hash_value*sizeof(int)==NULL) {					//hash value doesnt have a block
+  		if(BF_AllocateBlock(header_info.fileDesc)<0) {			//create new block
+  			BF_PrintError("Could not allocate block\n");
+  			BF_CloseFile(header_info.fileDesc);
+  			return -1;
+  		}
+  		if((gotoBlock=BF_GetBlockCounter(header_info.fileDesc))<0){		//get number of newly created block
+			BF_PrintError("Could not get block counter\n");
+			BF_CloseFile(header_info.fileDesc);
+			return -1;
+		}
+		memcpy(block+hash_value*sizeof(int),&gotoBlock,sizeof(int));
+  		if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0){
+			BF_PrintError("Could not read block\n");
+			BF_CloseFile(header_info.fileDesc);
+			return -1;
+		}
+		memcpy(block+2*sizeof(int),&record,sizeof(Record));
+		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0){
+			BF_PrintError("Could not write to block\n");
+			BF_CloseFile(header_info.fileDesc);
+			return -1;
+		}
+  	}
+  	else {														// open corresponding block to hash value
+  		
+  	
+  	}
     return 0;
-    
 }
 
 
@@ -170,7 +212,7 @@ unsigned int hash_function_int(int hashsize,int num){
 	return hash_value;
 }
 
-unsigned int hash_function_char(int hashsize,char hash_name[100]){
+unsigned int hash_function_char(int hashsize,char hash_name[25]){
 	unsigned long hash_value=0;
 	int i;
 	while(i=*hash_name++)
