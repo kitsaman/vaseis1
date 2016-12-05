@@ -27,6 +27,7 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 	info->attrType=attrType;
 	info->attrLength=attrLength;
 	info->size=buckets;
+	info->isHash=1;
 	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
 	int blockSum=1; //number of blocks we'll need to allocate
 	int bucketsLeft = buckets; //buckets that still need to fit in a block
@@ -97,7 +98,7 @@ HT_info* HT_OpenIndex(char *fileName) {
   		 return NULL;
   	}
   	memcpy(&first_info,block,sizeof(HT_first));
-  	if(first_info.attrType!='c' && first_info.attrType!='i')					//check that the file is a hash file
+  	if(first_info.isHash!=1)					//check that the file is a hash file
   		return NULL;
   	info = malloc(sizeof(HT_info));												//allocate memory to save info
   	//info->attrName = malloc( (strlen(first_info.attrName)+1) * sizeof(char) );
@@ -121,7 +122,6 @@ int HT_CloseIndex( HT_info* header_info ) {
     free(header_info);
     printf("Closed file and freed memory\n");
     return 0;
-    
 }
 
 int HT_InsertEntry(HT_info header_info, Record record) {

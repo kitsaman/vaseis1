@@ -16,6 +16,7 @@ typedef struct HT_first{
 	int attrLength;					// length of key
 	int size;				      	// size of array
     int initialBlocks;              // first info block+blocks the hashtable needs
+    int isHash;
 } HT_first;
 
 typedef struct HT_info {
