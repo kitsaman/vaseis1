@@ -86,7 +86,7 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 		}
   		free(hashTable);
 	}
-	printf("Created file with number of blocks = %d!\n",BF_GetBlockCounter(blockFile));
+	printf("Created file with number of blocks = %d\n\n",BF_GetBlockCounter(blockFile));
 	return 0;
 }
 
@@ -95,7 +95,7 @@ HT_info* HT_OpenIndex(char *fileName) {
     void* block;
     HT_info* info;
     HT_first first_info;
-    if((blockFile=BF_OpenFile(fileName))<0) {		//open the file
+    if((blockFile=BF_OpenFile(fileName))<0) {			//open the file
   		 BF_PrintError("Could not open file\n");
   		 return NULL;
   	}
@@ -105,9 +105,9 @@ HT_info* HT_OpenIndex(char *fileName) {
   		 return NULL;
   	}
   	memcpy(&first_info,block,sizeof(HT_first));
-  	if(first_info.isHash!=1)					//check that the file is a hash file
+  	if(first_info.isHash!=1)			//check that the file is a hash file
   		return NULL;
-  	info = malloc(sizeof(HT_info));												//allocate memory to save info
+  	info = malloc(sizeof(HT_info));				//allocate memory to save info
   	//info->attrName = malloc( (strlen(first_info.attrName)+1) * sizeof(char) );
   	info->fileDesc = blockFile;
   	strcpy(info->attrName,first_info.attrName);
@@ -115,7 +115,6 @@ HT_info* HT_OpenIndex(char *fileName) {
   	info->attrLength = first_info.attrLength;
   	info->numBuckets = first_info.size;
   	info->initialBlocks = first_info.initialBlocks;
-  	printf("Name=%s\nType=%c\nLength=%d\nBuckets=%ld\nBlocks=%d\n",info->attrName,info->attrType,info->attrLength,info->numBuckets,info->initialBlocks);
   	return info;
 } 
 
@@ -134,6 +133,7 @@ int HT_CloseIndex( HT_info* header_info ) {
 int HT_InsertEntry(HT_info header_info, Record record) {
 	unsigned int hash_value;
 	int blockFile;
+	int maxRecords = (512-(2*sizeof(int)))/sizeof(Record); 
 	void* block;
 
 	// Compute hash value
@@ -159,8 +159,8 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 
     // Check if hash value block has already been created
 	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
-	int hashBlock=1, gotoBlock, numRecords, nextBlock, bucketValue;
-	while(hash_value>maxBuckets) {
+	int hashBlock=1, gotoBlock, numRecords, nextBlock, bucketValue, blockDepth;
+	while(hash_value>=maxBuckets) {
 		hashBlock++;
 		hash_value -= maxBuckets;
 	}
@@ -177,77 +177,126 @@ int HT_InsertEntry(HT_info header_info, Record record) {
   			BF_CloseFile(header_info.fileDesc);
   			return -1;
   		}
-  		if((gotoBlock=BF_GetBlockCounter(header_info.fileDesc))<0) {		//get number of newly created block
+  		if((gotoBlock=BF_GetBlockCounter(header_info.fileDesc))<0) {	//get number of newly created block
 			BF_PrintError("Could not get block counter\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
-		}printf("New block has number %d\n",gotoBlock);
+		}
+		gotoBlock--;
+		printf("New block has number %d\n",gotoBlock);
 		memcpy(block+hash_value*sizeof(int),&gotoBlock,sizeof(int));	//write to hashtable block the corresponding block for this hash value
 		if(BF_WriteBlock(header_info.fileDesc,hashBlock)<0) {
 			BF_PrintError("Could not write to block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
-  		if(BF_ReadBlock(header_info.fileDesc,gotoBlock-1,&block)<0) {		//read the block for this hash value
+  		if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0) {		//read the block for this hash value
 			BF_PrintError("Could not read block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
 		numRecords = 1;
-		memcpy(block+2*sizeof(int),&record,sizeof(Record));				//copy the record after the space for the number of records in block and block number
 		memcpy(block,&numRecords,sizeof(int));
-		if(BF_WriteBlock(header_info.fileDesc,gotoBlock-1)<0) {
+		memcpy(block+2*sizeof(int),&record,sizeof(Record));				//copy the record after the space for the number of records in block and block number
+		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0) {
 			BF_PrintError("Could not write to block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
   	}
-  	else {																		// open corresponding block to hash value
+  	else {																// open corresponding block to hash value
   		if(BF_ReadBlock(header_info.fileDesc,bucketValue,&block)<0) {
 			BF_PrintError("Could not read block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
 		}
+		blockDepth=1;
   		memcpy(&numRecords,block,sizeof(int));
-  		if(numRecords == (512-2*sizeof(int)/sizeof(Record))) {					//cant add another record
+  		if(numRecords == maxRecords) {																		//cant add another record in first block of hash value
   			int inserted = 0;
-  			while(inserted == 0) {												//need to find block that can fit another record
-  				memcpy(&nextBlock,block+sizeof(int),sizeof(int));
-  				if(BF_ReadBlock(header_info.fileDesc,nextBlock,&block)<0) {		//read the next block for this hash value
-					BF_PrintError("Could not read block\n");
-					BF_CloseFile(header_info.fileDesc);
-					return -1;
+  			while(inserted == 0) {																			//need to find block that can fit another record
+  				memcpy(&nextBlock,block+sizeof(int),sizeof(int));											//check if we have already made another block for this hash value
+  				if(nextBlock != -1){																		//if we have
+  					blockDepth++;
+	  				if(BF_ReadBlock(header_info.fileDesc,nextBlock,&block)<0) {								//read the next block for this hash value
+						BF_PrintError("Could not read block\n");
+						BF_CloseFile(header_info.fileDesc);
+						return -1;
+					}
+					memcpy(&numRecords,block,sizeof(int));
+					if(numRecords == maxRecords) {															//loop until we find a block that fits or we have to create a new block
+						inserted = 0;
+					}
+					else {																					//found block that has space
+						memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
+				  		numRecords++;
+				  		memcpy(block,&numRecords,sizeof(int));												//+1 number of records
+				  		if(BF_WriteBlock(header_info.fileDesc,nextBlock)<0) {								//write to block
+							BF_PrintError("Could not write to block\n");
+							BF_CloseFile(header_info.fileDesc);
+							return -1;
+						}
+						inserted=1;
+					}
 				}
-				memcpy(&numRecords,block,sizeof(int));
-				if(numRecords == (512-2*sizeof(int)/sizeof(Record))) {
-					inserted = 0;
-				}
-				else {
-					memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
-			  		numRecords++;
-			  		memcpy(block,&numRecords,sizeof(int));												//+1 number of records
-			  		if(BF_WriteBlock(header_info.fileDesc,nextBlock)<0) {								//write to block
+				else {																//there isn't an extra block for this hash value
+					if(BF_AllocateBlock(header_info.fileDesc)<0) {					//create new block
+			  			BF_PrintError("Could not allocate block\n");
+			  			BF_CloseFile(header_info.fileDesc);
+			  			return -1;
+			  		}
+			  		if((gotoBlock=BF_GetBlockCounter(header_info.fileDesc))<0) {	//get number of newly created block
+						BF_PrintError("Could not get block counter\n");
+						BF_CloseFile(header_info.fileDesc);
+						return -1;
+					}
+					gotoBlock--;
+					printf("New block has number %d\n",gotoBlock);
+					memcpy(block+sizeof(int),&gotoBlock,sizeof(int));				//write to hashtable block the corresponding block for this hash value
+					if(blockDepth==1){												//check which block we have to save the next block number
+						if(BF_WriteBlock(header_info.fileDesc,bucketValue)<0) {
+							BF_PrintError("Could not write to block\n");
+							BF_CloseFile(header_info.fileDesc);
+							return -1;
+						}
+					}
+					else {
+						if(BF_WriteBlock(header_info.fileDesc,nextBlock)<0) {
+							BF_PrintError("Could not write to block\n");
+							BF_CloseFile(header_info.fileDesc);
+							return -1;
+						}
+					}
+					if(BF_ReadBlock(header_info.fileDesc,gotoBlock,&block)<0) {		//read the block for this hash value
+						BF_PrintError("Could not read block\n");
+						BF_CloseFile(header_info.fileDesc);
+						return -1;
+					}
+					numRecords = 1;
+					memcpy(block,&numRecords,sizeof(int));
+					memcpy(block+2*sizeof(int),&record,sizeof(Record));				//copy the record after the space for the number of records in block and block number
+					if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0) {
 						BF_PrintError("Could not write to block\n");
 						BF_CloseFile(header_info.fileDesc);
 						return -1;
 					}
 					inserted=1;
 				}
-  			}
+			}
 
   		}
-  		else {
+  		else {																					//record fits in first block of hash value
 	  		memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
 	  		numRecords++;
 	  		memcpy(block,&numRecords,sizeof(int));												//+1 number of records
-	  		if(BF_WriteBlock(header_info.fileDesc,gotoBlock)<0) {								//write to block
+	  		if(BF_WriteBlock(header_info.fileDesc,bucketValue)<0) {								//write to block
 				BF_PrintError("Could not write to block\n");
 				BF_CloseFile(header_info.fileDesc);
 				return -1;
 			}
 	  	}
   	}
-  	printf("Inserted record at block number %d\n",gotoBlock);
+  	printf("Inserted record at block number %d\n\n",gotoBlock);
     return 0;
 }
 
@@ -377,10 +426,24 @@ int main(void) {
 	strcpy(r1.name,"Xristos");
 	strcpy(r1.surname,"Kitsa");
 	strcpy(r1.city,"Peristeri");
+	Record r2;
+	r2.id=154;
+	strcpy(r2.name,"Alex");
+	strcpy(r2.surname,"Lapo");
+	strcpy(r2.city,"Peukakia");
+	Record r3;
+	r3.id=1524;
+	strcpy(r3.name,"Giorgos");
+	strcpy(r3.surname,"Kapakapa");
+	strcpy(r3.city,"Peukakia");
 	HT_info* bla;
 	BF_Init();
 	HT_CreateIndex( "peos", 'c', "city", 6, 500);
 	bla=HT_OpenIndex("peos");
 	HT_InsertEntry(*bla,r1);
+	HT_InsertEntry(*bla,r2);
+	HT_InsertEntry(*bla,r3);
+	//void* value1 = "Peukakia";
+	//HT_GetAllEntries(*bla, value1);
 	HT_CloseIndex(bla);
 }
