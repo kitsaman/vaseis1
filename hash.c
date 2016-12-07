@@ -411,19 +411,139 @@ int HT_GetAllEntries(HT_info header_info, void *value) {
 
 
 int HashStatistics(char* filename) {
-    int blockFile, numBlocks;
-    blockFile = BF_OpenFile(filename);
-	if(blockFile<0) {
-		BF_PrintError("Could not open file\n");
-  		BF_CloseFile(blockFile);
-  		return -1;
-	}
-	if((numBlocks=BF_GetBlockCounter(blockFile))<0) {
+    int numBlocks, numBuckets, bucketsLeft, bucketBlocks, i, j, end;
+    int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
+    int blockValue, nextBlock;
+    int leastRecords, mostRecords, currRecords, blockRecords;
+    int overflowBuckets, overflowBlocks;
+    double averageBlocks, averageRecords;
+    HT_info* info = HT_OpenIndex(filename);
+    void* block;
+	if((numBlocks=BF_GetBlockCounter(info->fileDesc))<0) {			//got number of blocks the file has
 		BF_PrintError("Could not get block counter\n");
-		BF_CloseFile(blockFile);
+		BF_CloseFile(info->fileDesc);
 		return -1;
 	}
-	printf("Total number of blocks = %d\n",numBlocks+1);
+	numBuckets = info->numBuckets;
+	bucketsLeft = numBuckets;
+	overflowBuckets = 0;
+	for(i=1; i<info->initialBlocks; i++){				//for every block that is part of hash table
+		if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
+			BF_PrintError("Could not read block\n");
+			BF_CloseFile(info->fileDesc);
+			return -1;
+		}
+		if(i == info->initialBlocks -1){
+			for(j=0; j<bucketsLeft; j++){						//In every bucket of the block
+				overflowBlocks = 0;
+				bucketBlocks = 0;
+				leastRecords = 7;
+				mostRecords = 0;
+				averageRecords = 0;
+				currRecords = 0;
+				end = 0;
+				memcpy(&blockValue,block+j*sizeof(int),sizeof(int));			//Get the first block corresponding to this hash value
+				if(blockValue != -1){
+					if(BF_ReadBlock(info->fileDesc,blockValue,&block)<0) {			//open the first block of this hash value
+						BF_PrintError("Could not read block\n");
+						BF_CloseFile(info->fileDesc);
+						return -1;
+					}
+					while(end == 0){
+						bucketBlocks++;
+						memcpy(&blockRecords,block,sizeof(int));
+						if(blockRecords > mostRecords)
+							mostRecords = blockRecords;
+						if(blockRecords < leastRecords)
+							leastRecords = blockRecords;
+						currRecords += blockRecords;
+						memcpy(&nextBlock,block+sizeof(int),sizeof(int));
+						if(nextBlock == -1){
+							end = 1;
+							averageRecords = (double)currRecords/(double)bucketBlocks;
+							printf("Bucket with value %d has %d overflown blocks\n", ((i-1)*maxBuckets)+j,overflowBlocks);
+							printf("Bucket with value %d has %d number of records with least records in block = %d, most records in block = %d and average records in block =%f\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
+						}
+						else {
+							overflowBlocks++;
+							if(BF_ReadBlock(info->fileDesc,nextBlock,&block)<0) {			//open the first block of this hash value
+								BF_PrintError("Could not read block\n");
+								BF_CloseFile(info->fileDesc);
+								return -1;
+							}
+						}
+					}
+					if(overflowBlocks > 0)
+						overflowBuckets++;
+				}
+				else
+					printf("Bucket with value %d doesn't have any records\n", ((i-1)*maxBuckets)+j);
+				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
+					BF_PrintError("Could not read block\n");
+					BF_CloseFile(info->fileDesc);
+					return -1;
+				}
+			}
+		}
+		else {
+			for(j=0; j<maxBuckets; j++){
+				overflowBlocks = 0;
+				bucketBlocks = 0;
+				leastRecords = 7;
+				mostRecords = 0;
+				averageRecords = 0;
+				currRecords = 0;
+				end = 0;
+				memcpy(&blockValue,block+j*sizeof(int),sizeof(int));			//Get the first block corresponding to this hash value
+				if(blockValue != -1){
+					if(BF_ReadBlock(info->fileDesc,blockValue,&block)<0) {			//open the first block of this hash value
+						BF_PrintError("Could not read block\n");
+						BF_CloseFile(info->fileDesc);
+						return -1;
+					}
+					while(end == 0){
+						bucketBlocks++;
+						memcpy(&blockRecords,block,sizeof(int));
+						if(blockRecords > mostRecords)
+							mostRecords = blockRecords;
+						if(blockRecords < leastRecords)
+							leastRecords = blockRecords;
+						currRecords += blockRecords;
+						memcpy(&nextBlock,block+sizeof(int),sizeof(int));
+						if(nextBlock == -1){
+							end = 1;
+							averageRecords = (double)currRecords/(double)bucketBlocks;
+							printf("Bucket with value %d has %d overflown blocks\n", ((i-1)*maxBuckets)+j,overflowBlocks);
+							printf("Bucket with value %d has %d number of records with least records in block = %d, most records in block = %d and average records in block =%f\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
+						}
+						else {
+							overflowBlocks++;
+							if(BF_ReadBlock(info->fileDesc,nextBlock,&block)<0) {			//open the first block of this hash value
+								BF_PrintError("Could not read block\n");
+								BF_CloseFile(info->fileDesc);
+								return -1;
+							}
+						}
+					}
+					if(overflowBlocks > 0)
+						overflowBuckets++;
+				}
+				else
+					printf("Bucket with value %d doesn't have any records\n", ((i-1)*maxBuckets)+j);
+				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
+					BF_PrintError("Could not read block\n");
+					BF_CloseFile(info->fileDesc);
+					return -1;
+				}
+			}
+		}
+		bucketsLeft -= maxBuckets;
+	}
+
+	averageBlocks = (double)(numBlocks-(info->initialBlocks))/(double)numBuckets;
+	printf("Total number of blocks = %d\n",numBlocks);
+	printf("Average number of blocks in buckets = %f\n",averageBlocks);
+	printf("Total number of buckets that have overflown = %d\n", overflowBuckets);
 	return 0;
 }
 
@@ -444,32 +564,4 @@ unsigned int hash_function_char(int hashsize,char hash_name[25]) {
 
 void print_record(Record rec) {
 	printf("\nID=%d\nName=%s\nSurname=%s\nCity=%s\n",rec.id,rec.name,rec.surname,rec.city);
-}
-
-int main(void) {
-	Record r1;
-	r1.id=15;
-	strcpy(r1.name,"Xristos");
-	strcpy(r1.surname,"Kitsa");
-	strcpy(r1.city,"Peristeri");
-	Record r2;
-	r2.id=154;
-	strcpy(r2.name,"Alex");
-	strcpy(r2.surname,"Lapo");
-	strcpy(r2.city,"Peukakia");
-	Record r3;
-	r3.id=1524;
-	strcpy(r3.name,"Giorgos");
-	strcpy(r3.surname,"Kapakapa");
-	strcpy(r3.city,"Peukakia");
-	HT_info* bla;
-	BF_Init();
-	HT_CreateIndex( "peos", 'c', "city", 7, 51);
-	bla=HT_OpenIndex("peos");
-	HT_InsertEntry(*bla,r1);
-	HT_InsertEntry(*bla,r2);
-	HT_InsertEntry(*bla,r3);
-	void* value1 = "Peukakia";
-	HT_GetAllEntries(*bla, value1);
-	HT_CloseIndex(bla);
 }
