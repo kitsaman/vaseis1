@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "hash.h"
+#include "exhash.h"
+
 
 int main(int argc, char* argv[]) {
 
@@ -10,17 +11,17 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	FILE *fp;
-	char *token;
-	char line[256];
+	//FILE *fp;
+	//char *token;
+	//char line[256];
 
-    Record record;
-	HT_info* info;
+    //Record record;
+	EH_info* info;
 	BF_Init();
-	HT_CreateIndex( "test", 'c', "city", 7, 151);
-	info=HT_OpenIndex("test");
+	EH_CreateIndex( "test2", "city", 'c', 7, 7);
+	info=EH_OpenIndex("test2");
 
-	if(argc == 2){
+	/*if(argc == 2){
 		fp=fopen(argv[1],"r");
 		if(fp==NULL)
 		{
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]) {
 		        strncpy(record.city, token, sizeof(record.city));
 
 		        print_record(record);
-		        HT_InsertEntry(*info, record);
+		        //EH_InsertEntry(*info, record);
 		    }
 		}
 	}
@@ -69,12 +70,12 @@ int main(int argc, char* argv[]) {
 		token = strtok(NULL, "\"");
 		strncpy(record.city, token, sizeof(record.city));
 
-		HT_InsertEntry(*info, record);
+		//EH_InsertEntry(*info, record);
 	}
-
-	void* value1 = "Keratsini";
-	HT_GetAllEntries(*info, value1);
-	HT_CloseIndex(info);
-	HashStatistics("test");
+*/
+	//void* value1 = "Keratsini";
+	//EH_GetAllEntries(*info, value1);
+	EH_CloseIndex(info);
+	//HashStatistics("test");
 	return 1;
 }

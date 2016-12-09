@@ -29,9 +29,12 @@ typedef struct HT_info {
     int initialBlocks;              // first info block+blocks the hashtable needs
 } HT_info;
 
+/* Όπου attrType, attrName, και attrLength αφορούν το πεδίο κλειδί, fileDesc είναι ο αναγνωριστικός 
+αριθμός του ανοίγματος του αρχείου, όπως επιστράφηκε από το επίπεδο διαχείρισης μπλοκ, και 
+numBuckets είναι το πλήθος των κάδων που υπάρχουν στο αρχείο. */
 
 unsigned int hash_function_int ( int num,int hashsize);
-unsigned int hash_function_char( int hashsize,char hash_name[100]);
+unsigned int hash_function_char( int hashsize,char hash_name[20]);
 void print_record( Record rec);
 
 /* Η συνάρτηση HT_CreateIndex χρησιμοποιείται για τη δημιουργία και κατάλληλη αρχικοποίηση ενός 
@@ -56,11 +59,6 @@ int HT_CreateIndex(
 άνοιγμα δεν αφορά αρχείο κατακερματισμού, τότε αυτό επίσης θεωρείται σφάλμα. */
 HT_info* HT_OpenIndex( char *fileName );                                     /* όνομα αρχείου */
 
-
-
-/* Όπου attrType, attrName, και attrLength αφορούν το πεδίο κλειδί, fileDesc είναι ο αναγνωριστικός 
-αριθμός του ανοίγματος του αρχείου, όπως επιστράφηκε από το επίπεδο διαχείρισης μπλοκ, και 
-numBuckets είναι το πλήθος των κάδων που υπάρχουν στο αρχείο. */
 
 
 /* Η συνάρτηση HT_CloseIndex κλείνει το αρχείο που προσδιορίζεται μέσα στη δομή header_info. 

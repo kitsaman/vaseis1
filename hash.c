@@ -1,8 +1,10 @@
 #include "BF.h"
 #include "hash.h"
 
+//run with command gcc -o hash hash.c BF_64.a HT_main.c
+
 int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLength, int buckets) {
-	int blockFile, bucketsN, i, j;
+	int blockFile, i, j;
 	HT_first* info = malloc(sizeof(HT_first));
 	//info->fileName = malloc( (strlen(fileName)+1) * sizeof(char) );
 	//info->attrName = malloc( (strlen(attrName)+1) * sizeof(char) );
@@ -28,7 +30,7 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 	info->attrLength=attrLength;
 	info->size=buckets;
 	info->isHash=1;
-	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
+	int maxBuckets = BLOCK_SIZE / sizeof(int);//number of buckets each block can hold
 	int blockSum=1; //number of blocks we'll need to allocate
 	int bucketsLeft = buckets; //buckets that still need to fit in a block
 	while( bucketsLeft > maxBuckets ) {
@@ -52,7 +54,6 @@ int HT_CreateIndex( char *fileName, char attrType, char* attrName, int attrLengt
 	free(info);
 
 	//hashTable construction
-
 	for(i=0; i<blockSum; i++) { //allocate needed blocks
 		int* hashTable;
 		if(i==blockSum-1) {		//size of array
@@ -132,8 +133,7 @@ int HT_CloseIndex( HT_info* header_info ) {
 
 int HT_InsertEntry(HT_info header_info, Record record) {
 	unsigned int hash_value;
-	int blockFile;
-	int maxRecords = (512-(2*sizeof(int)))/sizeof(Record); 
+	int maxRecords = (BLOCK_SIZE-(2*sizeof(int)))/sizeof(Record); 
 	void* block;
 
 	// Compute hash value
@@ -158,13 +158,13 @@ int HT_InsertEntry(HT_info header_info, Record record) {
     printf("Hash value %d\n",hash_value);
 
     // Check if hash value block has already been created
-	int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
-	int hashBlock=1, gotoBlock, numRecords, nextBlock, bucketValue, nextValue, blockDepth;
+	int maxBuckets = BLOCK_SIZE / sizeof(int);//number of buckets each block can hold
+	int hashBlock=1, gotoBlock, numRecords, nextBlock, lastBlock, bucketValue, nextValue, blockDepth;
 	while(hash_value>=maxBuckets) {
 		hashBlock++;
 		hash_value -= maxBuckets;
 	}
-	printf("Need to add record at block number %d\n",hashBlock);
+	printf("Need to search at hash block number %d\n",hashBlock);
 	if(BF_ReadBlock(header_info.fileDesc,hashBlock,&block)<0) {
  	 	BF_PrintError("Could not read block\n");
  	 	BF_CloseFile(header_info.fileDesc);
@@ -211,7 +211,8 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 			BF_PrintError("Could not read block\n");
 			BF_CloseFile(header_info.fileDesc);
 			return -1;
-		}
+		}printf("First we will check block %d\n",bucketValue);
+
 		blockDepth=1;
   		memcpy(&numRecords,block,sizeof(int));
   		if(numRecords == maxRecords) {																		//cant add another record in first block of hash value
@@ -227,7 +228,7 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 					}
 					memcpy(&numRecords,block,sizeof(int));
 					if(numRecords == maxRecords) {															//loop until we find a block that fits or we have to create a new block
-						inserted = 0;
+						lastBlock = nextBlock;
 					}
 					else {																					//found block that has space
 						memcpy(block+numRecords*sizeof(Record)+2*sizeof(int),&record,sizeof(Record));		//add record at the end
@@ -238,7 +239,8 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 							BF_CloseFile(header_info.fileDesc);
 							return -1;
 						}
-						inserted=1;
+						printf("Inserted record at block number %d\n\n",nextBlock);
+						inserted = 1;
 					}
 				}
 				else {																//there isn't an extra block for this hash value
@@ -254,8 +256,8 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 					}
 					gotoBlock--;
 					printf("New block has number %d\n",gotoBlock);
-					memcpy(block+sizeof(int),&gotoBlock,sizeof(int));				//write to hashtable block the corresponding block for this hash value
-					if(blockDepth==1){												//check which block we have to save the next block number
+					memcpy(block+sizeof(int),&gotoBlock,sizeof(int));					//write to hashtable block the corresponding block for this hash value
+					if(blockDepth == 1){												//check which block we have to save the next block number
 						if(BF_WriteBlock(header_info.fileDesc,bucketValue)<0) {
 							BF_PrintError("Could not write to block\n");
 							BF_CloseFile(header_info.fileDesc);
@@ -263,7 +265,7 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 						}
 					}
 					else {
-						if(BF_WriteBlock(header_info.fileDesc,nextBlock)<0) {
+						if(BF_WriteBlock(header_info.fileDesc,lastBlock)<0) {
 							BF_PrintError("Could not write to block\n");
 							BF_CloseFile(header_info.fileDesc);
 							return -1;
@@ -284,6 +286,7 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 						BF_CloseFile(header_info.fileDesc);
 						return -1;
 					}
+					printf("Inserted record at block number %d\n\n",gotoBlock);
 					inserted=1;
 				}
 			}
@@ -298,9 +301,9 @@ int HT_InsertEntry(HT_info header_info, Record record) {
 				BF_CloseFile(header_info.fileDesc);
 				return -1;
 			}
+			printf("Inserted record at block number %d\n\n",bucketValue);
 	  	}
   	}
-  	printf("Inserted record at block number %d\n\n",gotoBlock);
     return 0;
 }
 
@@ -340,9 +343,9 @@ int HT_GetAllEntries(HT_info header_info, void *value) {
     printf("Hash value %d\n",hash_value);
 
     // Find which block we will search first
-	int maxBuckets = 512 / sizeof(int);			//number of buckets each block can hold
+	int maxBuckets = BLOCK_SIZE / sizeof(int);			//number of buckets each block can hold
 	int hashBlock=1, numRecords, nextBlock, bucketValue;
-	while(hash_value>maxBuckets) {				//Find correct hash table block
+	while(hash_value>=maxBuckets) {				//Find correct hash table block
 		hashBlock++;
 		hash_value -= maxBuckets;
 	}
@@ -407,12 +410,13 @@ int HT_GetAllEntries(HT_info header_info, void *value) {
 	}
 	printf("\nNumber of records that were read = %d\n", totalRecords);
 	printf("Number of records that had the value = %d\n\n", foundRecords);
+	return 0;
 }
 
 
 int HashStatistics(char* filename) {
     int numBlocks, numBuckets, bucketsLeft, bucketBlocks, i, j, end;
-    int maxBuckets = 512 / sizeof(int);//number of buckets each block can hold
+    int maxBuckets = BLOCK_SIZE / sizeof(int);//number of buckets each block can hold
     int blockValue, nextBlock;
     int leastRecords, mostRecords, currRecords, blockRecords;
     int overflowBuckets, overflowBlocks;
@@ -427,13 +431,8 @@ int HashStatistics(char* filename) {
 	numBuckets = info->numBuckets;
 	bucketsLeft = numBuckets;
 	overflowBuckets = 0;
-	for(i=1; i<info->initialBlocks; i++){				//for every block that is part of hash table
-		if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
-			BF_PrintError("Could not read block\n");
-			BF_CloseFile(info->fileDesc);
-			return -1;
-		}
-		if(i == info->initialBlocks -1){
+	for(i=1; i<info->initialBlocks; i++){						//for every block that is part of hash table
+		if(i == info->initialBlocks -1){						//Might be less than max buckets that fit in a block
 			for(j=0; j<bucketsLeft; j++){						//In every bucket of the block
 				overflowBlocks = 0;
 				bucketBlocks = 0;
@@ -442,7 +441,12 @@ int HashStatistics(char* filename) {
 				averageRecords = 0;
 				currRecords = 0;
 				end = 0;
-				memcpy(&blockValue,block+j*sizeof(int),sizeof(int));			//Get the first block corresponding to this hash value
+				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
+					BF_PrintError("Could not read block\n");
+					BF_CloseFile(info->fileDesc);
+					return -1;
+				}
+				memcpy(&blockValue,block+j*sizeof(int),sizeof(int));				//Get the first block corresponding to this hash value
 				if(blockValue != -1){
 					if(BF_ReadBlock(info->fileDesc,blockValue,&block)<0) {			//open the first block of this hash value
 						BF_PrintError("Could not read block\n");
@@ -462,7 +466,7 @@ int HashStatistics(char* filename) {
 							end = 1;
 							averageRecords = (double)currRecords/(double)bucketBlocks;
 							printf("Bucket with value %d has %d overflown blocks\n", ((i-1)*maxBuckets)+j,overflowBlocks);
-							printf("Bucket with value %d has %d number of records with least records in block = %d, most records in block = %d and average records in block =%f\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
+							printf("Bucket with value %d has %d records with least records in block = %d, most records in block = %d and average records in block = %.03f\n\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
 						}
 						else {
 							overflowBlocks++;
@@ -477,16 +481,11 @@ int HashStatistics(char* filename) {
 						overflowBuckets++;
 				}
 				else
-					printf("Bucket with value %d doesn't have any records\n", ((i-1)*maxBuckets)+j);
-				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
-					BF_PrintError("Could not read block\n");
-					BF_CloseFile(info->fileDesc);
-					return -1;
-				}
+					printf("Bucket with value %d doesn't have any records\n\n", ((i-1)*maxBuckets)+j);
 			}
 		}
 		else {
-			for(j=0; j<maxBuckets; j++){
+			for(j=0; j<maxBuckets; j++){						//Definitely has maximum buckets
 				overflowBlocks = 0;
 				bucketBlocks = 0;
 				leastRecords = 7;
@@ -494,7 +493,12 @@ int HashStatistics(char* filename) {
 				averageRecords = 0;
 				currRecords = 0;
 				end = 0;
-				memcpy(&blockValue,block+j*sizeof(int),sizeof(int));			//Get the first block corresponding to this hash value
+				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
+					BF_PrintError("Could not read block\n");
+					BF_CloseFile(info->fileDesc);
+					return -1;
+				}
+				memcpy(&blockValue,block+j*sizeof(int),sizeof(int));				//Get the first block corresponding to this hash value
 				if(blockValue != -1){
 					if(BF_ReadBlock(info->fileDesc,blockValue,&block)<0) {			//open the first block of this hash value
 						BF_PrintError("Could not read block\n");
@@ -514,7 +518,7 @@ int HashStatistics(char* filename) {
 							end = 1;
 							averageRecords = (double)currRecords/(double)bucketBlocks;
 							printf("Bucket with value %d has %d overflown blocks\n", ((i-1)*maxBuckets)+j,overflowBlocks);
-							printf("Bucket with value %d has %d number of records with least records in block = %d, most records in block = %d and average records in block =%f\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
+							printf("Bucket with value %d has %d records with least records in block = %d, most records in block = %d and average records in block = %.03f\n\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
 						}
 						else {
 							overflowBlocks++;
@@ -529,36 +533,32 @@ int HashStatistics(char* filename) {
 						overflowBuckets++;
 				}
 				else
-					printf("Bucket with value %d doesn't have any records\n", ((i-1)*maxBuckets)+j);
-				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
-					BF_PrintError("Could not read block\n");
-					BF_CloseFile(info->fileDesc);
-					return -1;
-				}
+					printf("Bucket with value %d doesn't have any records\n\n", ((i-1)*maxBuckets)+j);
 			}
+			bucketsLeft -= maxBuckets;
 		}
-		bucketsLeft -= maxBuckets;
 	}
 
 	averageBlocks = (double)(numBlocks-(info->initialBlocks))/(double)numBuckets;
 	printf("Total number of blocks = %d\n",numBlocks);
-	printf("Average number of blocks in buckets = %f\n",averageBlocks);
+	printf("Average number of blocks in bucket = %.03f\n",averageBlocks);
 	printf("Total number of buckets that have overflown = %d\n", overflowBuckets);
 	return 0;
 }
 
+
 unsigned int hash_function_int(int hashsize,int num) {
 	unsigned int hash_value;
-	hash_value=num%hashsize;
+	hash_value = num % hashsize;
 	return hash_value;
 }
 
-unsigned int hash_function_char(int hashsize,char hash_name[25]) {
-	unsigned long hash_value=0;
+unsigned int hash_function_char(int hashsize,char hash_name[20]) {
+	unsigned long hash_value = 0;
 	int i;
-	while(i=*hash_name++)
-		hash_value=i+(hash_value<<6)+(hash_value<<16)-hash_value;
-	hash_value=hash_value%hashsize;
+	while((i = *hash_name++))
+		hash_value =  i + (hash_value << 6) + (hash_value << 16) - hash_value;
+	hash_value = hash_value % hashsize;
 	return (unsigned int)hash_value;
 }
 

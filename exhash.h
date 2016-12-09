@@ -1,3 +1,9 @@
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
 typedef struct Record {
 	int id;
 	char name[15];
@@ -5,14 +11,35 @@ typedef struct Record {
 	char city[25];
 } Record;
 
-typedef struct EHT_first {
-	char* fileName;					// name of hashtable
-	char attrType;					// type of key
-	char* attrName;					// name of key
-	int attrLength;					// length of key
-	int depth;					// depth of extendable hash table
-} EHT_first;
+typedef struct EH_first {
+	char fileName[100];					// name of hashtable
+	char attrType;					    // type of key
+	char attrName[100];					// name of key
+	int attrLength;					    // length of key
+	int globalDepth;                    // depth of extendable hash table
+    int isHash;                         // variable to know if file is hashtable file
+} EH_first;
 
+
+
+/* H δομή όπου κρατούνται όσες πληροφορίες κρίνετε απαραίτητες προκειμένου να μπορείτε να 
+επεξεργαστείτε στη συνέχεια τις εγγραφές του. Tα attrName, attrType και attrLength αφορούν το 
+πεδίο-κλειδί, fileDesc είναι ο αναγνωριστικός αριθμός του ανοίγματος του αρχείου, όπως 
+επιστράφηκε από το επίπεδο διαχείρισης μπλοκ και depth είναι το ολικό βάθος του ευρετηρίου 
+επεκτατού κατακερματισμού. */
+typedef struct EH_info{
+    int fileDesc;          /* αναγνωριστικός αριθμός ανοίγματος αρχείου από το επίπεδο block */ 
+    char attrName[100];    /* το όνομα του πεδίου που είναι το κλειδί για το συγκεκριμένο αρχείο */ 
+    char attrType;                                        /* τύπος πεδίου-κλειδιού: 'c', 'i' */ 
+    int attrLength;                                                 /* μήκος πεδίου-κλειδιού */ 
+    int globalDepth;                         /* το ολικό βάθος ευρετηρίου επεκτατού κατακερματισμού */
+    int initialBlocks;
+} EH_info;
+
+
+unsigned int hash_function_int ( int num,int hashsize);
+unsigned int hash_function_char( int hashsize,char hash_name[20]);
+void print_record( Record rec);
 
 
 /* Η συνάρτηση EH_CreateIndex χρησιμοποιείται για τη δημιουργία και την κατάλληλη αρχικοποίηση 
@@ -27,7 +54,6 @@ int EH_CreateIndex(
 );
 
 
-
 /* Η συνάρτηση ΕH_OpenIndex ανοίγει το αρχείο με όνομα filename και διαβάζει την μετα-πληροφορία 
 του αρχείου επεκτατού κατακερματισμού. Κατόπιν, ενημερώνει μια δομή όπου κρατούνται όσες 
 πληροφορίες κρίνετε απαραίτητες προκειμένου να μπορείτε να επεξεργαστείτε στη συνέχεια τις 
@@ -35,22 +61,6 @@ int EH_CreateIndex(
 αποτυχίας επιστρέφει τιμή NULL. Αν το αρχείο που δοθηκε για άνοιγμα δεν αφορά αρχείο επεκτατού 
 κατακερματισμού, τότε αυτό επίσης θεωρείται σφάλμα.*/
 EH_info* EH_OpenIndex( char *fileName );                       /* όνομα αρχείου προς άνοιγμα */
-
-
-
-/* H δομή όπου κρατούνται όσες πληροφορίες κρίνετε απαραίτητες προκειμένου να μπορείτε να 
-επεξεργαστείτε στη συνέχεια τις εγγραφές του. Tα attrName, attrType και attrLength αφορούν το 
-πεδίο-κλειδί, fileDesc είναι ο αναγνωριστικός αριθμός του ανοίγματος του αρχείου, όπως 
-επιστράφηκε από το επίπεδο διαχείρισης μπλοκ και depth είναι το ολικό βάθος του ευρετηρίου 
-επεκτατού κατακερματισμού. */
-typedef struct {
-    int fileDesc;          /* αναγνωριστικός αριθμός ανοίγματος αρχείου από το επίπεδο block */ 
-    char* attrName;    /* το όνομα του πεδίου που είναι το κλειδί για το συγκεκριμένο αρχείο */ 
-    char attrType,                                        /* τύπος πεδίου-κλειδιού: 'c', 'i' */ 
-    int attrLength,                                                 /* μήκος πεδίου-κλειδιού */ 
-    int depth                         /* το ολικό βάθος ευρετηρίου επεκτατού κατακερματισμού */ 
-} EH_info;
-
 
 
 
