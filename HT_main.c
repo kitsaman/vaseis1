@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     Record record;
 	HT_info* info;
 	BF_Init();
-	HT_CreateIndex( "test", 'c', "city", 7, 151);
+	HT_CreateIndex( "test", 'c', "city", 7, 101);
 	info=HT_OpenIndex("test");
 
 	if(argc == 2){
