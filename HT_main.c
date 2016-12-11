@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "BF.h"
 #include "hash.h"
 
 int main(int argc, char* argv[]) {
@@ -49,7 +50,7 @@ int main(int argc, char* argv[]) {
 		    }
 		}
 	}
-	printf("You can add manually records or type exit to exit\n");
+	printf("You can add manually records or type exit\n");
 	while(fgets(line,256,stdin)!=NULL) {
 		token=strtok(line,",\n");
 		if(strcmp(token,"exit")==0)

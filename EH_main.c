@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "BF.h"
 #include "exhash.h"
 
 
@@ -18,7 +19,7 @@ int main(int argc, char* argv[]) {
     //Record record;
 	EH_info* info;
 	BF_Init();
-	EH_CreateIndex( "test2", "city", 'c', 7, 7);
+	EH_CreateIndex( "test2", "city", 'c', 7, 3);
 	info=EH_OpenIndex("test2");
 
 	/*if(argc == 2){
@@ -50,7 +51,7 @@ int main(int argc, char* argv[]) {
 		    }
 		}
 	}
-	printf("You can add manually records or type exit to exit\n");
+	printf("You can add manually records or type exit\n");
 	while(fgets(line,256,stdin)!=NULL) {
 		token=strtok(line,",\n");
 		if(strcmp(token,"exit")==0)

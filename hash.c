@@ -410,7 +410,7 @@ int HT_GetAllEntries(HT_info header_info, void *value) {
 	}
 	printf("\nNumber of records that were read = %d\n", totalRecords);
 	printf("Number of records that had the value = %d\n\n", foundRecords);
-	return 0;
+	return foundRecords;
 }
 
 
@@ -418,7 +418,7 @@ int HashStatistics(char* filename) {
     int numBlocks, numBuckets, bucketsLeft, bucketBlocks, i, j, end;
     int maxBuckets = BLOCK_SIZE / sizeof(int);//number of buckets each block can hold
     int blockValue, nextBlock;
-    int leastRecords, mostRecords, currRecords, blockRecords;
+    int leastRecords, mostRecords, currRecords, blockRecords, totalRecords;
     int overflowBuckets, overflowBlocks;
     double averageBlocks, averageRecords;
     HT_info* info = HT_OpenIndex(filename);
@@ -431,14 +431,15 @@ int HashStatistics(char* filename) {
 	numBuckets = info->numBuckets;
 	bucketsLeft = numBuckets;
 	overflowBuckets = 0;
+	leastRecords = 500;
+	mostRecords = 0;
+	averageRecords = 0;
+	totalRecords = 0;
 	for(i=1; i<info->initialBlocks; i++){						//for every block that is part of hash table
 		if(i == info->initialBlocks -1){						//Might be less than max buckets that fit in a block
 			for(j=0; j<bucketsLeft; j++){						//In every bucket of the block
 				overflowBlocks = 0;
 				bucketBlocks = 0;
-				leastRecords = 7;
-				mostRecords = 0;
-				averageRecords = 0;
 				currRecords = 0;
 				end = 0;
 				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
@@ -456,17 +457,18 @@ int HashStatistics(char* filename) {
 					while(end == 0){
 						bucketBlocks++;
 						memcpy(&blockRecords,block,sizeof(int));
-						if(blockRecords > mostRecords)
-							mostRecords = blockRecords;
-						if(blockRecords < leastRecords)
-							leastRecords = blockRecords;
 						currRecords += blockRecords;
 						memcpy(&nextBlock,block+sizeof(int),sizeof(int));
 						if(nextBlock == -1){
 							end = 1;
+							totalRecords += currRecords;
+							if(currRecords > mostRecords)
+								mostRecords = currRecords;
+							if(currRecords < leastRecords)
+								leastRecords = currRecords;
 							averageRecords = (double)currRecords/(double)bucketBlocks;
 							printf("Bucket with value %d has %d overflown blocks\n", ((i-1)*maxBuckets)+j,overflowBlocks);
-							printf("Bucket with value %d has %d records with least records in block = %d, most records in block = %d and average records in block = %.03f\n\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
+							printf("Bucket with value %d has %d records.\n\n",((i-1)*maxBuckets)+j,currRecords);
 						}
 						else {
 							overflowBlocks++;
@@ -488,9 +490,6 @@ int HashStatistics(char* filename) {
 			for(j=0; j<maxBuckets; j++){						//Definitely has maximum buckets
 				overflowBlocks = 0;
 				bucketBlocks = 0;
-				leastRecords = 7;
-				mostRecords = 0;
-				averageRecords = 0;
 				currRecords = 0;
 				end = 0;
 				if(BF_ReadBlock(info->fileDesc,i,&block)<0) {
@@ -508,17 +507,18 @@ int HashStatistics(char* filename) {
 					while(end == 0){
 						bucketBlocks++;
 						memcpy(&blockRecords,block,sizeof(int));
-						if(blockRecords > mostRecords)
-							mostRecords = blockRecords;
-						if(blockRecords < leastRecords)
-							leastRecords = blockRecords;
 						currRecords += blockRecords;
 						memcpy(&nextBlock,block+sizeof(int),sizeof(int));
 						if(nextBlock == -1){
 							end = 1;
+							totalRecords += currRecords;
+							if(currRecords > mostRecords)
+								mostRecords = currRecords;
+							if(currRecords < leastRecords)
+								leastRecords = currRecords;
 							averageRecords = (double)currRecords/(double)bucketBlocks;
 							printf("Bucket with value %d has %d overflown blocks\n", ((i-1)*maxBuckets)+j,overflowBlocks);
-							printf("Bucket with value %d has %d records with least records in block = %d, most records in block = %d and average records in block = %.03f\n\n",((i-1)*maxBuckets)+j,currRecords,leastRecords,mostRecords,averageRecords);
+							printf("Bucket with value %d has %d records.\n\n",((i-1)*maxBuckets)+j,currRecords);
 						}
 						else {
 							overflowBlocks++;
@@ -538,10 +538,13 @@ int HashStatistics(char* filename) {
 			bucketsLeft -= maxBuckets;
 		}
 	}
-
+	averageRecords = (double)totalRecords/(double)numBuckets;
 	averageBlocks = (double)(numBlocks-(info->initialBlocks))/(double)numBuckets;
 	printf("Total number of blocks = %d\n",numBlocks);
-	printf("Average number of blocks in bucket = %.03f\n",averageBlocks);
+	printf("Least number of records in a bucket = %d\n",leastRecords);
+	printf("Biggest number of records in a bucket = %d\n",mostRecords);
+	printf("Average number of records in a bucket = %.03f\n",averageRecords);
+	printf("Average number of blocks in a bucket = %.03f\n",averageBlocks);
 	printf("Total number of buckets that have overflown = %d\n", overflowBuckets);
 	return 0;
 }
