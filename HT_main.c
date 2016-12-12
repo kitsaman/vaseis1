@@ -18,8 +18,8 @@ int main(int argc, char* argv[]) {
     Record record;
 	HT_info* info;
 	BF_Init();
-	HT_CreateIndex( "test", 'c', "city", 7, 101);
-	info=HT_OpenIndex("test");
+	HT_CreateIndex( "HT_file", 'c', "city", 7, 101);
+	info=HT_OpenIndex("HT_file");
 
 	if(argc == 2){
 		fp=fopen(argv[1],"r");
@@ -76,6 +76,6 @@ int main(int argc, char* argv[]) {
 	void* value1 = "Keratsini";
 	HT_GetAllEntries(*info, value1);
 	HT_CloseIndex(info);
-	HashStatistics("test");
+	HashStatistics("HT_file");
 	return 1;
 }

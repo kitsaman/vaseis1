@@ -12,17 +12,17 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	//FILE *fp;
-	//char *token;
-	//char line[256];
+	FILE *fp;
+	char *token;
+	char line[256];
 
-    //Record record;
+    Record record;
 	EH_info* info;
 	BF_Init();
-	EH_CreateIndex( "test2", "city", 'c', 7, 3);
-	info=EH_OpenIndex("test2");
+	EH_CreateIndex( "EH_file", "city", 'c', 7, 3);
+	info=EH_OpenIndex("EH_file");
 
-	/*if(argc == 2){
+	if(argc == 2){
 		fp=fopen(argv[1],"r");
 		if(fp==NULL)
 		{
@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 		        strncpy(record.city, token, sizeof(record.city));
 
 		        print_record(record);
-		        //EH_InsertEntry(*info, record);
+		        EH_InsertEntry(info, record);
 		    }
 		}
 	}
@@ -71,12 +71,12 @@ int main(int argc, char* argv[]) {
 		token = strtok(NULL, "\"");
 		strncpy(record.city, token, sizeof(record.city));
 
-		//EH_InsertEntry(*info, record);
+		EH_InsertEntry(info, record);
 	}
-*/
-	//void* value1 = "Keratsini";
-	//EH_GetAllEntries(*info, value1);
+
+	void* value1 = "Keratsini";
+	EH_GetAllEntries(*info, value1);
 	EH_CloseIndex(info);
-	//HashStatistics("test");
+	HashStatistics("EH_file");
 	return 1;
 }

@@ -228,10 +228,26 @@ int EH_InsertEntry(EH_info* header_info, Record record) {
         if(numRecords == maxRecords) {                                  //no more space in this block
             memcpy(&localDepth,block+sizeof(int),sizeof(int));          //need to check local depth
             if(localDepth < header_info->globalDepth) {                 //only need to split the content of the block
-
+                Record* temp;
+                temp = malloc( sizeof(Record) * numRecords);            //need to temporarily save the records
+                memcpy(temp,block+2*sizeof(int),numRecords*sizeof(Record));
+                numRecords = 0;
+                memcpy(block,&numRecords,sizeof(int));
+                localDepth++;
+                memcpy(block+sizeof(int),&localDepth,sizeof(int));
+                memset(block+2*sizeof(int),0,BLOCK_SIZE-2*sizeof(int)); //empty the block from records
+                if(BF_WriteBlock(header_info->fileDesc,bucketValue)<0) {
+                    BF_PrintError("Could not write to block\n");
+                    BF_CloseFile(header_info->fileDesc);
+                    return -1;
+                }
+                for(i=0;i<numRecords;i++) {                             //reinsert all the records
+                    EH_InsertEntry(header_info,temp[i]);
+                }
+                free(temp);
             }
             else {                                                      //need to double the size of hashtable
-
+                (header_info->globalDepth)++;
             }
         }
         else {
