@@ -363,7 +363,7 @@ int EH_GetAllEntries(EH_info header_info, void *value) {
 int HashStatistics(char* filename) {
     int numBlocks, numBuckets, bucketsLeft, i, j;
     int maxBuckets = ( BLOCK_SIZE - sizeof(int) ) / sizeof(int);//number of buckets each block can hold
-    int hashBlocks = 1, nextHashBlock, blockValue;
+    int hashBlocks = 1, nextHashBlock, blockValue, currentBlock;
     int leastRecords, mostRecords, blockRecords, totalRecords;
     double averageRecords;
     EH_info* info = EH_OpenIndex(filename);
@@ -375,7 +375,7 @@ int HashStatistics(char* filename) {
     }
     numBuckets = pow(2,info->globalDepth);
     bucketsLeft = numBuckets;
-    while(bucketsLeft>=maxBuckets) {             //Find correct hash table block
+    while(bucketsLeft>=maxBuckets) {                        //Find correct hash table block
         hashBlocks++;
         bucketsLeft -= maxBuckets;
     }
@@ -388,7 +388,8 @@ int HashStatistics(char* filename) {
     leastRecords = 8;
     mostRecords = 0;
     totalRecords = 0;
-    for(i=1; i < hashBlocks; i++){
+    for(i=1; i < hashBlocks+1; i++){
+        currentBlock = nextHashBlock;
         memcpy(&nextHashBlock,block,sizeof(int));                                       //check which block has the next part of the hash table
         if(i < hashBlocks - 1) {
             for(j=0; j<maxBuckets; j++) {
@@ -406,6 +407,11 @@ int HashStatistics(char* filename) {
                         mostRecords = blockRecords;
                     printf("Bucket with value %d has %d records\n\n", ((i - 1)*maxBuckets)+j,blockRecords);
                     totalRecords += blockRecords;
+                    if(BF_ReadBlock(info->fileDesc,currentBlock,&block)<0) {
+                        BF_PrintError("Could not read block\n");
+                        BF_CloseFile(info->fileDesc);
+                        return -1;
+                    }
                 }
                 else
                     printf("Bucket with value %d doesn't have any records\n\n", ((i - 1)*maxBuckets)+j);                    
@@ -428,15 +434,22 @@ int HashStatistics(char* filename) {
                         mostRecords = blockRecords;
                     printf("Bucket with value %d has %d records\n\n", ((i - 1)*maxBuckets)+j,blockRecords);
                     totalRecords += blockRecords;
+                    if(BF_ReadBlock(info->fileDesc,currentBlock,&block)<0) {
+                        BF_PrintError("Could not read block\n");
+                        BF_CloseFile(info->fileDesc);
+                        return -1;
+                    }
                 }
                 else
                     printf("Bucket with value %d doesn't have any records\n\n", ((i - 1)*maxBuckets)+j);
             }
         }
-        if(BF_ReadBlock(info->fileDesc,nextHashBlock,&block)<0) {                 //read next hashtable block
-            BF_PrintError("Could not read block\n");
-            BF_CloseFile(info->fileDesc);
-            return -1;
+        if(i < hashBlocks) {
+            if(BF_ReadBlock(info->fileDesc,nextHashBlock,&block)<0) {                 //read next hashtable block
+                BF_PrintError("Could not read block\n");
+                BF_CloseFile(info->fileDesc);
+                return -1;
+            }
         }
     }
     averageRecords = (double)totalRecords/(double)numBuckets;
