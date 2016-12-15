@@ -18,6 +18,7 @@ typedef struct EH_first {
 	int attrLength;					    // length of key
 	int globalDepth;                    // depth of extendable hash table
     int isHash;                         // variable to know if file is hashtable file
+    int bucketsInLastHash;
 } EH_first;
 
 
@@ -33,7 +34,7 @@ typedef struct EH_info{
     char attrType;                                        /* τύπος πεδίου-κλειδιού: 'c', 'i' */ 
     int attrLength;                                                 /* μήκος πεδίου-κλειδιού */ 
     int globalDepth;                         /* το ολικό βάθος ευρετηρίου επεκτατού κατακερματισμού */
-    int initialBlocks;
+    int bucketsInLastHash;
 } EH_info;
 
 
@@ -50,7 +51,7 @@ int EH_CreateIndex(
     char* attrName,    /* το όνομα του πεδίου που είναι το κλειδί για το συγκεκριμένο αρχείο */ 
     char attrType,                                        /* τύπος πεδίου-κλειδιού: 'c', 'i' */ 
     int attrLength,                                                 /* μήκος πεδίου-κλειδιού */ 
-    int depth                         /* το ολικό βάθος ευρετηρίου επεκτατού κατακερματισμού */ 
+    int depth                         /* το ολικό βάθος ευρετηρίου επεκτατού κατακερματισμού */
 );
 
 

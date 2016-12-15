@@ -12,6 +12,7 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	int i=0;
 	FILE *fp;
 	char *token;
 	char line[256];
@@ -19,7 +20,7 @@ int main(int argc, char* argv[]) {
     Record record;
 	EH_info* info;
 	BF_Init();
-	EH_CreateIndex( "EH_file", "city", 'c', 7, 3);
+	EH_CreateIndex( "EH_file", "city", 'c', 4, 3);
 	info=EH_OpenIndex("EH_file");
 
 	if(argc == 2){
@@ -48,6 +49,8 @@ int main(int argc, char* argv[]) {
 
 		        print_record(record);
 		        EH_InsertEntry(info, record);
+		        i++;
+		        printf("Evala to %d\n",i);
 		    }
 		}
 	}

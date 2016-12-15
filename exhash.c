@@ -36,6 +36,7 @@ int EH_CreateIndex(char *fileName, char* attrName, char attrType, int attrLength
         blockSum++;
         bucketsLeft -= maxBuckets;
     }
+    info->bucketsInLastHash = bucketsLeft;
     if(BF_ReadBlock(blockFile,0,&block)<0) {
         BF_PrintError("Could not read block\n");
         BF_CloseFile(blockFile);
@@ -54,7 +55,7 @@ int EH_CreateIndex(char *fileName, char* attrName, char attrType, int attrLength
     //hashTable construction
     for(i=1; i<=blockSum; i++) { //allocate needed blocks
         int* hashTable;
-        if(i == blockSum-1) {     //size of array
+        if(i == blockSum) {     //size of array
             hashTable = malloc( sizeof(int) * bucketsLeft);
             for (j=0; j<bucketsLeft; j++)
                 hashTable[j] = -1;
@@ -120,7 +121,7 @@ EH_info* EH_OpenIndex(char *fileName) {
     info->attrType = first_info.attrType;
     info->attrLength = first_info.attrLength;
     info->globalDepth = first_info.globalDepth;
-    info->initialBlocks = BF_GetBlockCounter(blockFile);
+    info->bucketsInLastHash = first_info.bucketsInLastHash;
     return info;
 } 
 
@@ -138,12 +139,13 @@ int EH_CloseIndex(EH_info* header_info) {
 
 int EH_InsertEntry(EH_info* header_info, Record record) {
     unsigned int hash_value;
-    int numBuckets, numRecords, localDepth, bucketValue, i;
+    int numBuckets, numRecords, localDepth, bucketValue, i, j;
     int maxRecords = (BLOCK_SIZE-(2*sizeof(int)))/sizeof(Record); 
     void* block;
 
     // Compute hash value
     numBuckets = pow(2,header_info->globalDepth);
+    printf("Buckets %d and GD %d\n",numBuckets,header_info->globalDepth);
     if(header_info->attrType=='i' && strcmp(header_info->attrName,"id")==0)         //use hash_function_int
         hash_value = hash_function_int(numBuckets,record.id);
     else if(header_info->attrType=='c') {                                            //use hash_function_char
@@ -164,12 +166,12 @@ int EH_InsertEntry(EH_info* header_info, Record record) {
     }
     printf("Hash value %d\n",hash_value);
     int maxBuckets = ( BLOCK_SIZE - sizeof(int) ) / sizeof(int);          //number of buckets each block can hold
-    int hashBlocks=1, nextHashBlock, newBlock;
+    int hashBlocks=1, nextHashBlock=1, newBlock, lastHash;
     while(hash_value>=maxBuckets) {             //Find correct hash table block
         hashBlocks++;
         hash_value -= maxBuckets;
     }
-    if(BF_ReadBlock(header_info->fileDesc,1,&block)<0) {
+    if(BF_ReadBlock(header_info->fileDesc,nextHashBlock,&block)<0) {
         BF_PrintError("Could not read block\n");
         BF_CloseFile(header_info->fileDesc);
         return -1;
@@ -181,8 +183,9 @@ int EH_InsertEntry(EH_info* header_info, Record record) {
             BF_CloseFile(header_info->fileDesc);
             return -1;
         }
-    }
-    memcpy(&bucketValue,block+sizeof(int)+hash_value*sizeof(int),sizeof(int));
+    }printf("hashBlocks %d  nextHashBlock %d\n",hashBlocks,nextHashBlock);
+    lastHash = nextHashBlock;
+    memcpy(&bucketValue,block+sizeof(int)+hash_value*sizeof(int),sizeof(int));printf("bucketValue %d\n",bucketValue);
     if(bucketValue == -1) {
         if(BF_AllocateBlock(header_info->fileDesc)<0) {                  //create new block
             BF_PrintError("Could not allocate block\n");
@@ -217,6 +220,8 @@ int EH_InsertEntry(EH_info* header_info, Record record) {
             BF_CloseFile(header_info->fileDesc);
             return -1;
         }
+        printf("Inserted record at block number %d\n\n",newBlock);
+
     }
     else {
         if(BF_ReadBlock(header_info->fileDesc,bucketValue,&block)<0) {
@@ -226,28 +231,157 @@ int EH_InsertEntry(EH_info* header_info, Record record) {
         }
         memcpy(&numRecords,block,sizeof(int));
         if(numRecords == maxRecords) {                                  //no more space in this block
+            int prevRecords = numRecords;
             memcpy(&localDepth,block+sizeof(int),sizeof(int));          //need to check local depth
-            if(localDepth < header_info->globalDepth) {                 //only need to split the content of the block
-                Record* temp;
-                temp = malloc( sizeof(Record) * numRecords);            //need to temporarily save the records
-                memcpy(temp,block+2*sizeof(int),numRecords*sizeof(Record));
-                numRecords = 0;
-                memcpy(block,&numRecords,sizeof(int));
-                localDepth++;
-                memcpy(block+sizeof(int),&localDepth,sizeof(int));
-                memset(block+2*sizeof(int),0,BLOCK_SIZE-2*sizeof(int)); //empty the block from records
-                if(BF_WriteBlock(header_info->fileDesc,bucketValue)<0) {
-                    BF_PrintError("Could not write to block\n");
-                    BF_CloseFile(header_info->fileDesc);
-                    return -1;
-                }
+            Record* temp;
+            temp = malloc( sizeof(Record) * numRecords);            //need to temporarily save the records
+            memcpy(temp,block+2*sizeof(int),numRecords*sizeof(Record));
+            numRecords = 0;
+            memcpy(block,&numRecords,sizeof(int));
+            localDepth++;
+            memcpy(block+sizeof(int),&localDepth,sizeof(int));
+            memset(block+2*sizeof(int),0,BLOCK_SIZE-2*sizeof(int)); //empty the block from records
+            if(BF_WriteBlock(header_info->fileDesc,bucketValue)<0) {
+                BF_PrintError("Could not write to block\n");
+                BF_CloseFile(header_info->fileDesc);
+                return -1;
+            }
+            if(localDepth - 1 < header_info->globalDepth) {              //only need to split the content of the block
                 for(i=0;i<numRecords;i++) {                             //reinsert all the records
+                    printf("\n\n\nXanavazw %d\n",i);
                     EH_InsertEntry(header_info,temp[i]);
                 }
                 free(temp);
+                EH_InsertEntry(header_info,record);
             }
             else {                                                      //need to double the size of hashtable
+                int newBuckets,makeBuckets;
                 (header_info->globalDepth)++;
+                newBuckets = pow(2,header_info->globalDepth);
+                makeBuckets = newBuckets - numBuckets;                  //how many buckets we need to add
+                if(makeBuckets <= maxBuckets - header_info->bucketsInLastHash) {             //check if they fit in the last block of the hashtable
+                    int* hashTable;
+                    hashTable = malloc( sizeof(int) * makeBuckets);
+                    for (j=0; j<makeBuckets; j++)                                            //create the buckets
+                        hashTable[j] = -1;
+                    if(BF_ReadBlock(header_info->fileDesc,lastHash,&block)<0) {              //and add them at the last hashtable block
+                        BF_PrintError("Could not read block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                    memcpy(block+sizeof(int)+header_info->bucketsInLastHash*sizeof(int),hashTable,sizeof(int) * makeBuckets);
+                    if(BF_WriteBlock(header_info->fileDesc,lastHash)<0) {
+                        BF_PrintError("Could not write to block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                    free(hashTable);
+                    header_info->bucketsInLastHash = newBuckets;
+                    if(BF_ReadBlock(header_info->fileDesc,0,&block)<0) {                //have to change in block num 0 the number of buckets in the last hash block 
+                        BF_PrintError("Could not read block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                    EH_first temp_first;
+                    memcpy(&temp_first,block,sizeof(EH_first));
+                    temp_first.bucketsInLastHash = newBuckets;
+                    memcpy(block,&temp_first,sizeof(EH_first));
+                    if(BF_WriteBlock(header_info->fileDesc,0)) {
+                        BF_PrintError("Could not write to block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                }
+                else {                                                                      //definitely need to add block for hashtable
+                    int tempBuckets = maxBuckets - header_info->bucketsInLastHash;
+                    makeBuckets -= tempBuckets;
+                    hashBlocks = 1;
+                    while(makeBuckets > maxBuckets) {
+                        hashBlocks++;
+                        makeBuckets -= maxBuckets;
+                    }
+                    int* hashTable;
+                    hashTable = malloc( sizeof(int) * tempBuckets);
+                    for (j=0; j<tempBuckets; j++)                                            //create the buckets
+                        hashTable[j] = -1;
+                    if(BF_ReadBlock(header_info->fileDesc,lastHash,&block)<0) {              //and add them at the last hashtable block
+                        BF_PrintError("Could not read block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                    memcpy(block+sizeof(int)+header_info->bucketsInLastHash*sizeof(int),hashTable,sizeof(int) * makeBuckets);
+                    int tempHash = BF_GetBlockCounter(header_info->fileDesc);
+                    memcpy(block,&tempHash,sizeof(int));
+                    if(BF_WriteBlock(header_info->fileDesc,lastHash)<0) {
+                        BF_PrintError("Could not write to block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                    free(hashTable);
+                    for(i=1; i<=hashBlocks; i++) {                                          //allocate as many blocks are needed to add new buckets
+                        int* hashTable;                                                     //and fill the buckets with -1 (since they are empty)
+                        int nextHash;
+                        if(i == hashBlocks) {
+                            hashTable = malloc( sizeof(int) * makeBuckets);
+                            for (j=0; j<makeBuckets; j++)
+                                hashTable[j] = -1;
+                        }
+                        else {
+                            hashTable = malloc( sizeof(int) * maxBuckets);
+                            for (j=0; j < maxBuckets; j++)
+                                hashTable[j] = -1;
+                        }
+                        if(BF_AllocateBlock(header_info->fileDesc)<0) {
+                            BF_PrintError("Could not allocate block\n");
+                            BF_CloseFile(header_info->fileDesc);
+                            return -1;
+                        }
+                        tempHash = BF_GetBlockCounter(header_info->fileDesc);
+                        tempHash--;
+                        if(BF_ReadBlock(header_info->fileDesc,tempHash,&block)<0) {
+                            BF_PrintError("Could not read block\n");
+                            BF_CloseFile(header_info->fileDesc);
+                            return -1;
+                        }
+                        if(i == hashBlocks) {
+                            nextHash = -1;
+                            memcpy(block,&nextHash,sizeof(int));
+                            memcpy(block+sizeof(int),hashTable,sizeof(int) * makeBuckets);
+                        }
+                        else {
+                            nextHash = BF_GetBlockCounter(header_info->fileDesc);
+                            memcpy(block,&nextHash,sizeof(int));
+                            memcpy(block+sizeof(int),hashTable,sizeof(int) * maxBuckets);
+                        }
+                        if(BF_WriteBlock(header_info->fileDesc,tempHash)) {
+                            BF_PrintError("Could not write to block\n");
+                            BF_CloseFile(header_info->fileDesc);
+                            return -1;
+                        }
+                        free(hashTable);
+                    }
+                    header_info->bucketsInLastHash = makeBuckets;
+                    if(BF_ReadBlock(header_info->fileDesc,0,&block)<0) {                //have to change in block num 0 the number of buckets in the last hash block 
+                        BF_PrintError("Could not read block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                    EH_first temp_first;
+                    memcpy(&temp_first,block,sizeof(EH_first));
+                    temp_first.bucketsInLastHash = makeBuckets;
+                    memcpy(block,&temp_first,sizeof(EH_first));
+                    if(BF_WriteBlock(header_info->fileDesc,0)) {
+                        BF_PrintError("Could not write to block\n");
+                        BF_CloseFile(header_info->fileDesc);
+                        return -1;
+                    }
+                }
+                for(i=0;i<prevRecords;i++) {                             //reinsert all the records
+                    printf("\n\n\nXanavazw %d\n",i);
+                    EH_InsertEntry(header_info,temp[i]);
+                }
+                free(temp);
+                EH_InsertEntry(header_info,record);
             }
         }
         else {
