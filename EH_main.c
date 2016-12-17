@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     Record record;
 	EH_info* info;
 	BF_Init();
-	EH_CreateIndex( "EH_file", "city", 'c', 4, 3);
+	EH_CreateIndex("EH_file", "city", 'c', 4, 3);
 	info=EH_OpenIndex("EH_file");
 
 	if(argc == 2){
@@ -47,7 +47,6 @@ int main(int argc, char* argv[]) {
 		        token = strtok(NULL, "\"");
 		        strncpy(record.city, token, sizeof(record.city));
 
-		        print_record(record);
 		        EH_InsertEntry(info, record);
 		        i++;
 		        printf("Evala to %d\n",i);

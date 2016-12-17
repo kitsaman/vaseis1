@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     Record record;
 	HT_info* info;
 	BF_Init();
-	HT_CreateIndex( "HT_file", 'c', "city", 4, 101);
+	HT_CreateIndex("HT_file", 'c', "name", 4, 101);
 	info=HT_OpenIndex("HT_file");
 
 	if(argc == 2){
@@ -45,7 +45,6 @@ int main(int argc, char* argv[]) {
 		        token = strtok(NULL, "\"");
 		        strncpy(record.city, token, sizeof(record.city));
 
-		        print_record(record);
 		        HT_InsertEntry(*info, record);
 		    }
 		}

@@ -17,6 +17,7 @@ typedef struct EH_first {
 	char attrName[100];					// name of key
 	int attrLength;					    // length of key
 	int globalDepth;                    // depth of extendable hash table
+    int initialDepth;
     int isHash;                         // variable to know if file is hashtable file
     int bucketsInLastHash;
 } EH_first;
@@ -34,6 +35,7 @@ typedef struct EH_info{
     char attrType;                                        /* τύπος πεδίου-κλειδιού: 'c', 'i' */ 
     int attrLength;                                                 /* μήκος πεδίου-κλειδιού */ 
     int globalDepth;                         /* το ολικό βάθος ευρετηρίου επεκτατού κατακερματισμού */
+    int initialDepth;
     int bucketsInLastHash;
 } EH_info;
 
